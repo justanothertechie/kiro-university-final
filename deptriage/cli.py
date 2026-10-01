@@ -2,11 +2,13 @@
 
 import argparse
 import sys
+from collections import defaultdict
+from dataclasses import replace
 from pathlib import Path
 
 from . import osv, parsers, ranker, report
 from .models import Finding, ManifestError, OsvError, ScanResult
-from .ranker import ORDERED_SEVERITIES
+from .ranker import ORDERED_SEVERITIES, SEVERITY_RANK
 
 EXIT_OK = 0
 EXIT_THRESHOLD = 1
@@ -57,6 +59,91 @@ def _parse_one(path: Path):
     raise ManifestError(f"unsupported manifest {path} (expected package.json or requirements.txt)")
 
 
+def dedupe_findings(findings: list[Finding]) -> list[Finding]:
+    """Merge findings that share any alias into a single canonical finding.
+
+    OSV returns one record per vuln ID, but the same real vulnerability often
+    appears as both an OSV ID (e.g. GHSA-xxxx) and a PYSEC/CVE alias — each
+    returned as a separate record whose ``aliases`` list references the other.
+    Without dedup these show as two (or more) rows for the same flaw.
+
+    Algorithm per (package, ecosystem):
+      1. Build the full ID set for each finding: {osv_id} ∪ set(aliases).
+      2. Union-find: merge any two findings whose ID sets intersect.
+      3. From each merged group, keep the record with the highest-ranked
+         severity; if tied, prefer the one with a non-None score; if still
+         tied, prefer the one with a non-None fixed_version.
+      4. The winning record's ``osv_id`` and ``aliases`` are replaced with
+         the full union of all IDs in the group so nothing is lost.
+    """
+    if not findings:
+        return findings
+
+    # Group by (package name, ecosystem) — findings for different packages
+    # can never be the same vuln.
+    by_pkg: dict[tuple[str, str], list[Finding]] = defaultdict(list)
+    for f in findings:
+        by_pkg[(f.package.name, f.package.ecosystem)].append(f)
+
+    result: list[Finding] = []
+    for group in by_pkg.values():
+        # Map each ID → index in `group`
+        id_to_idx: dict[str, int] = {}
+        all_ids: list[set[str]] = []
+        for i, f in enumerate(group):
+            ids = {f.osv_id} | set(f.aliases)
+            all_ids.append(ids)
+            for vid in ids:
+                id_to_idx[vid] = i
+
+        # Union-find: merge indices whose ID sets overlap
+        parent = list(range(len(group)))
+
+        def find(x: int) -> int:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a: int, b: int) -> None:
+            parent[find(a)] = find(b)
+
+        for i, ids in enumerate(all_ids):
+            for vid in ids:
+                j = id_to_idx.get(vid)
+                if j is not None and j != i:
+                    union(i, j)
+
+        # Collect merged groups
+        merged: dict[int, list[int]] = defaultdict(list)
+        for i in range(len(group)):
+            merged[find(i)].append(i)
+
+        for indices in merged.values():
+            members = [group[i] for i in indices]
+            # Pick the best representative: highest severity, then has score,
+            # then has fixed_version.
+            best = max(
+                members,
+                key=lambda f: (
+                    SEVERITY_RANK.get(f.severity, 0),
+                    f.score is not None,
+                    f.fixed_version is not None,
+                ),
+            )
+            # Union of all IDs across the group
+            union_ids: set[str] = set()
+            for f in members:
+                union_ids.add(f.osv_id)
+                union_ids.update(f.aliases)
+            primary = best.osv_id
+            merged_aliases = sorted(union_ids - {primary})
+            # Return a new Finding with the merged ID set
+            result.append(replace(best, aliases=merged_aliases))
+
+    return result
+
+
 def run_scan(manifest_paths: list[str]) -> ScanResult:
     """Parse manifests, query OSV.dev, and build a ranked ScanResult.
 
@@ -99,7 +186,7 @@ def run_scan(manifest_paths: list[str]) -> ScanResult:
                 )
             )
 
-    ranked = ranker.rank(findings)
+    ranked = ranker.rank(dedupe_findings(findings))
     counts = {sev: 0 for sev in ORDERED_SEVERITIES}
     for finding in ranked:
         counts[finding.severity] = counts.get(finding.severity, 0) + 1
