@@ -29,16 +29,23 @@ def recorded_batch():
 def http_error(code, retry_after=None):
     headers = {"Retry-After": str(retry_after)} if retry_after is not None else {}
     return urllib.error.HTTPError(
-        osv.OSV_URL, code, f"HTTP {code}", headers, None
+        osv.OSV_BATCH_URL, code, f"HTTP {code}", headers, None
     )
 
 
 class FakeTransport:
-    """Scripted post_json replacement. behaviours: dict | Exception per call."""
+    """Scripted post_json replacement. behaviours: dict | Exception per call.
+
+    Also serves as a no-op get_json: since the fixture responses already
+    contain full vuln records (severity/affected fields present), query_batch
+    never calls get_json for the detail step — but it is wired in so future
+    tests can override it.
+    """
 
     def __init__(self, behaviours):
         self.behaviours = list(behaviours)
         self.calls = []
+        self.get_calls: list[str] = []
         self.sleeps = []
 
     def __call__(self, url, body):
@@ -48,6 +55,11 @@ class FakeTransport:
             raise behaviour
         return behaviour
 
+    def get_json(self, url):
+        """Stub GET: records the call and returns an empty dict."""
+        self.get_calls.append(url)
+        return {}
+
     def sleep(self, seconds):
         self.sleeps.append(seconds)
 
@@ -55,7 +67,7 @@ class FakeTransport:
 def test_query_shape_and_order():
     transport = FakeTransport([recorded_batch()])
     packages = [make_package("lodash"), make_package("requests", "PyPI"), make_package("is-even")]
-    pairs = osv.query_batch(packages, post_json=transport, sleep=transport.sleep)
+    pairs = osv.query_batch(packages, post_json=transport, get_json=transport.get_json, sleep=transport.sleep)
     assert [p.name for p, _ in pairs] == ["lodash", "requests", "is-even"]
     assert len(pairs[0][1]["vulns"]) == 1
     assert len(pairs[1][1]["vulns"]) == 2
@@ -67,7 +79,7 @@ def test_query_shape_and_order():
 def test_chunks_at_1000():
     transport = FakeTransport([])
     packages = [make_package(f"pkg{i}") for i in range(1001)]
-    pairs = osv.query_batch(packages, post_json=transport, sleep=transport.sleep)
+    pairs = osv.query_batch(packages, post_json=transport, get_json=transport.get_json, sleep=transport.sleep)
     assert len(transport.calls) == 2
     assert len(transport.calls[0][1]["queries"]) == 1000
     assert len(transport.calls[1][1]["queries"]) == 1

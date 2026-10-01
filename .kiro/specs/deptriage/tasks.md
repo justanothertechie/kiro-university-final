@@ -49,7 +49,8 @@ criterion so progress can be verified by running `pytest`.
 
 **Goal**: Implement `deptriage/osv.py` — `query_batch()`.
 
-- [ ] POST to `https://api.osv.dev/v1/query-batch` using `urllib.request`
+- [ ] POST to `https://api.osv.dev/v1/querybatch` using `urllib.request`
+- [ ] For each vuln ID returned, GET `https://api.osv.dev/v1/vulns/{id}` for the full record
 - [ ] Chunk packages into slices of at most 1,000
 - [ ] Set connect/read timeout of 10 seconds
 - [ ] Retry up to 3 times with exponential back-off on 429 and 5xx responses

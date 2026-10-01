@@ -95,3 +95,37 @@ def test_meets_threshold():
     assert meets_threshold(f, "medium")
     assert not meets_threshold(f, "critical")
     assert meets_threshold(make_finding("x", "unknown"), "low") is False
+
+
+def test_cvss_vector_string_parsed_to_score():
+    """Real OSV API returns CVSS vector strings, not plain numbers."""
+    # CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H = 7.5 (high)
+    vuln = {"severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"}]}
+    label, score, score_type = severity_of(vuln)
+    assert label == "high"
+    assert score == 7.5
+    assert score_type == "CVSS_V3"
+
+
+def test_cvss_vector_critical():
+    # CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H = 10.0 (critical)
+    vuln = {"severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H"}]}
+    label, score, _ = severity_of(vuln)
+    assert label == "critical"
+    assert score == 10.0
+
+
+def test_cvss_vector_medium():
+    # CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L = 4.3 (medium)
+    vuln = {"severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L"}]}
+    label, score, _ = severity_of(vuln)
+    assert label == "medium"
+    assert score == 4.3
+
+
+def test_plain_numeric_score_still_works():
+    """Backward compat: plain float scores in fixture data must still parse."""
+    vuln = {"severity": [{"type": "CVSS_V3", "score": 7.4}]}
+    label, score, _ = severity_of(vuln)
+    assert label == "high"
+    assert score == 7.4

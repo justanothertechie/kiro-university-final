@@ -38,6 +38,10 @@ def fake_post_factory():
 @pytest.fixture()
 def offline(monkeypatch):
     monkeypatch.setattr(osv, "_post_json", fake_post_factory())
+    # The fixture stubs already contain full vuln records (severity/affected
+    # present), so _get_json is never reached in practice. Patch it anyway
+    # to guarantee no live network calls regardless of fixture changes.
+    monkeypatch.setattr(osv, "_get_json", lambda url, timeout=10: {})
 
 
 def manifests():

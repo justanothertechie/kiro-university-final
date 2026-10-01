@@ -13,7 +13,7 @@ structured as a pipeline of four stages, each implemented as a dedicated module:
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │   parsers   │───▶│     osv     │───▶│   ranker    │───▶│   report    │
 │             │    │             │    │             │    │             │
-│ package.json│    │ query-batch │    │ severity_of │    │ to_table()  │
+│ package.json│    │ querybatch  │    │ severity_of │    │ to_table()  │
 │ requirements│    │ OSV.dev API │    │ rank()      │    │ to_json()   │
 │    .txt     │    │ retry logic │    │ meets_      │    │ exit_code_  │
 │             │    │             │    │ threshold() │    │ for()       │
@@ -83,8 +83,10 @@ User          cli.py          parsers.py       osv.py          ranker.py       r
  │─scan pkg.json─▶│                │               │                │               │
  │                │─parse_pkg_json─▶               │                │               │
  │                │                │──(packages)──▶│                │               │
- │                │                │               │─POST /query-batch│              │
- │                │                │               │◀──(vulns)──────│               │
+ │                │                │               │─POST /querybatch│             │
+ │                │                │               │◀──(vuln IDs)───│               │
+ │                │                │               │─GET /vulns/{id}─▶              │
+ │                │                │               │◀──(full records)│               │
  │                │                │               │─(pairs)────────────────────────▶│
  │                │                │               │                │─severity_of()  │
  │                │                │               │                │─fixed_ver..()  │
@@ -142,11 +144,21 @@ For `requirements.txt`, only `==` and `>=` produce queryable versions. Lines wit
 other operators (`~=`, `!=`, `<`, `>`, `===`) are recorded as skipped with reason
 "no pinned version".
 
-### 4.2 OSV client — chunking
+### 4.2 OSV client — two-step fetch
 
-The OSV query-batch endpoint accepts up to 1,000 queries per POST. `query_batch()`
-slices the package list into chunks of 1,000, POSTs each chunk, and zips the
-response `results` list back with the original packages in order.
+The OSV querybatch endpoint (`POST /v1/querybatch`) accepts up to 1,000 queries per
+request and returns shallow vuln stubs containing only the vulnerability ID and
+`modified` date. `query_batch()` performs a second step: for each unique vuln ID in
+the batch response it issues a `GET /v1/vulns/{id}` to retrieve the full record
+(severity vector, summary, affected ranges, aliases). Full records are cached within
+a chunk to avoid duplicate GETs for the same ID across multiple packages.
+
+If a stub already contains `severity`, `affected`, or `summary` fields (e.g. in
+test fixtures that pre-populate full records), the GET step is skipped for that
+stub — preserving offline test behaviour.
+
+`query_batch()` slices the package list into chunks of 1,000, POSTs each chunk, and
+zips the full-record results back with the original packages in order.
 
 ### 4.3 Ranker — CVSS preference
 

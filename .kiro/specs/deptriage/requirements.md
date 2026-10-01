@@ -26,10 +26,12 @@ entry, skipping bare names, unsupported operators, and option lines (`-r`, `-c`,
 ### REQ-3 — OSV.dev batch query
 
 **WHEN** at least one `Package` record exists after parsing,
-**THE SYSTEM SHALL** POST all packages to `https://api.osv.dev/v1/query-batch` in
+**THE SYSTEM SHALL** POST all packages to `https://api.osv.dev/v1/querybatch` in
 chunks of at most 1,000, with a connect/read timeout of 10 seconds, retrying up to
 3 times with exponential back-off on 429 and 5xx responses, and raising `OsvError`
-on persistent failure or non-retryable HTTP errors.
+on persistent failure or non-retryable HTTP errors. For each vulnerability ID
+returned, the system SHALL follow up with a GET to `https://api.osv.dev/v1/vulns/{id}`
+to retrieve the full record (severity, summary, affected ranges, aliases).
 
 ### REQ-4 — Severity ranking
 
