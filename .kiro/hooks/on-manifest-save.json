@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Rescan on manifest save",
+      "description": "Re-runs the DepTriage vulnerability scan on the saved manifest file. Reads the saved file path from the STDIN JSON payload defensively (tries file_path, filePath, path, filename, then any string value ending in package.json or requirements.txt).",
+      "trigger": "PostFileSave",
+      "matcher": "(package\\.json|requirements\\.txt)$",
+      "action": {
+        "type": "command",
+        "command": "python -c \"import sys, json, os; ctx=json.load(sys.stdin); fp=next((ctx.get(k) for k in ('file_path','filePath','path','filename') if isinstance(ctx.get(k),str) and ctx.get(k)), None) or next((v for v in ctx.values() if isinstance(v,str) and (v.endswith('package.json') or v.endswith('requirements.txt'))), None); (sys.stderr.write('deptriage hook: cannot find file path in payload keys: ' + str(list(ctx.keys())) + '\\n'), sys.exit(2)) if not fp else os.execv(sys.executable,[sys.executable,'-m','deptriage','scan',fp,'--format','table','--threshold','high'])\""
+      },
+      "timeout": 30,
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Test/tool caches
+.pytest_cache/
+.hypothesis/
+
+# Build artifacts
+*.egg-info/
+
+# Pickup guides (local working notes, not part of the submission)
+PICKUP.md
+Kiro-pickup-from-here-25092026.txt
