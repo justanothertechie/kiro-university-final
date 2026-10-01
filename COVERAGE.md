@@ -15,7 +15,7 @@ Paths are as they will appear in the final repo (`justanothertechie/kiro-univers
 | B2 | Package a Kiro power — bonus (250) | The same `deptriage` power is packaged in the repo as a complete, shareable power (manifest + skill + MCP config) | `power/deptriage-power/` (plugin.json URL + bundled resources) |
 
 ## Notes for the "Lessons demonstrated" write-up
-- Lesson 4's evidence (`tests/test_properties.py`) is generated via Kiro IDE (`tasks.md` Task 9, Lesson 4) during the build — it is intentionally not present yet; the properties themselves are already specified in `requirements.md` (REQ-6/7/8).
+- Lesson 4's evidence (`tests/test_properties.py`) was generated via Kiro IDE (tasks.md Task 9, Lesson 4) and is present in the repo. The properties it proves are specified in `requirements.md` (REQ-6/7/8).
 - Lesson 5 and Bonus 2 share one power by design: the power is *used* by the build (Lesson 5) and *packaged* in the repo (Bonus 2). The entry form treats these as separate checkboxes — reference the same `power/deptriage-power/` directory for both, describing use vs. packaging.
 - Bonus 1 (Kiro Web / cloud sessions, 250) is **not pursued** — paid-plan only, out of reach on the free plan. Reachable max: **5,000 / 5,250**.
 - Demo video must show: the scan running on a real manifest, the hook firing on save, and the `triage-agent` in action.

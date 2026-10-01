@@ -1,5 +1,7 @@
 # DepTriage
 
+*Built by Sidd (@hackingSidd on X)*
+
 DepTriage is a dependency vulnerability triage assistant: it parses `package.json` and `requirements.txt`, batch-queries the free OSV.dev API, and emits a severity-ranked triage report with fix guidance, exiting non-zero when findings meet your severity threshold. Built with Kiro as a spec-driven, stdlib-only Python CLI.
 
 ## Setup
