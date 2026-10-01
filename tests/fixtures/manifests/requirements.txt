@@ -1,0 +1,7 @@
+# e2e fixture requirements
+requests==2.28.0  # pinned
+urllib3
+-r other.txt
+--index-url https://example.com/simple
+
+Django>=3.2; python_version > "3.8"

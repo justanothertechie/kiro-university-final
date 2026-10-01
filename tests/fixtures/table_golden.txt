@@ -1,0 +1,7 @@
+SEVERITY  PACKAGE   INSTALLED  IDS                                 SUMMARY                                                       FIXED           
+--------  --------  ---------  ----------------------------------  ------------------------------------------------------------  ----------------
+high      lodash    4.17.20    GHSA-4xc9-xhrj-v574, CVE-2020-8203  Prototype pollution in lodash                                 4.17.21         
+medium    requests  2.28.0     GHSA-9hjg-9r4m-mvj7                 Unintended leak of Proxy-Authorization header to destination  no fix available
+
+Skipped (1):
+  package.json: left-pad@latest — unpinned spec 'latest'
